@@ -10,7 +10,7 @@ file(GLOB_RECURSE SRC CONFIGURE_DEPENDS "src/*.cpp" "src/*.hpp")
 add_library(Citrus SHARED ${SRC})
 
 target_link_libraries(Citrus PRIVATE glfw webgpu)
-target_include_directories(Citrus PRIVATE dependencies/glfw/include dependencies/webgpu/dawn/include)
+target_include_directories(Citrus PRIVATE dependencies/glfw/include dependencies/webgpu/dawn/include dependencies/spdlog/include)
 target_copy_webgpu_binaries(Citrus)
 
 
@@ -18,6 +18,7 @@ target_copy_webgpu_binaries(Citrus)
 target_include_directories(Citrus PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependencies/glfw/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependencies/spdlog/include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependencies/webgpu/dawn/include>
         $<INSTALL_INTERFACE:include>
 )

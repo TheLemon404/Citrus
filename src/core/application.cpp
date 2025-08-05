@@ -1,5 +1,7 @@
 #include "application.hpp"
 
+#include "log.hpp"
+
 namespace Citrus {
     Application::Application() : m_window(1024, 768, "Citrus") {
         m_graphicsManager = GraphicsManager();
@@ -8,6 +10,7 @@ namespace Citrus {
     void Application::Run() {
         m_window.Open();
         m_graphicsManager.Init();
+        Log::Init();
 
         while (!m_window.ShouldClose()) {
             m_window.SwapBuffersAndPoll();
