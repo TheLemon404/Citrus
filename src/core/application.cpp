@@ -8,9 +8,9 @@ namespace Citrus {
     }
 
     void Application::Run() {
+        Log::Init();
         m_window.Open();
         m_graphicsManager.Init();
-        Log::Init();
 
         while (!m_window.ShouldClose()) {
             m_window.SwapBuffersAndPoll();

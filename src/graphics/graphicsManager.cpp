@@ -1,5 +1,7 @@
 #include "graphicsManager.hpp"
 
+#include "core/log.hpp"
+
 namespace Citrus {
     GraphicsManager::GraphicsManager() {
 
@@ -13,6 +15,8 @@ namespace Citrus {
         LoadResources();
         InitBindings();
         InitPipelines();
+
+        CITRUS_CORE_INFO("initialized graphics manager");
     }
 
     void GraphicsManager::InitDevice() {
