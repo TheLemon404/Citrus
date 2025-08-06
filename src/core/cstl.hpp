@@ -9,5 +9,6 @@ namespace Citrus {
     public:
         void Append(T item);
         T Pop();
+        inline unsigned int Size() { return marker; }
     };
 }
