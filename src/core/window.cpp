@@ -11,7 +11,7 @@ namespace Citrus {
             return;
         }
 
-        s_glfwWindow = glfwCreateWindow(m_width, m_height, m_title.c_str(), NULL, NULL);
+        s_glfwWindow = glfwCreateWindow(s_width, s_height, m_title.c_str(), NULL, NULL);
         if (!s_glfwWindow) {
             CITRUS_CORE_ERROR("failed to create GLFW window");
             glfwTerminate();

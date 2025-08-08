@@ -12,9 +12,11 @@ namespace Citrus {
         m_graphicsManager.Init();
 
         while (!m_window.ShouldClose()) {
+            m_graphicsManager.Draw();
             m_window.SwapBuffersAndPoll();
         }
 
+        m_graphicsManager.CleanUp();
         m_window.Close();
     }
 }

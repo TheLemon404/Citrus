@@ -43,11 +43,11 @@ namespace Citrus {
 
         void FetchResults();
 
-        void SubmitCommandsAndWait(WGPUCommandBufferDescriptor commandBufferDescriptor);
+        std::pair<WGPUSurfaceTexture, WGPUTextureView> GetNextSurfaceViewData();
 
     public:
         void Init();
-
+        void Draw();
         void CleanUp();
     };
 }

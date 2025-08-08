@@ -33,7 +33,6 @@ namespace Citrus {
         CITRUS_CORE_INFO(" - device: {}", std::string(adapterInfo.device.data, adapterInfo.device.length));
         CITRUS_CORE_INFO(" - deviceID: {}", adapterInfo.deviceID);
         CITRUS_CORE_INFO(" - description: {}", std::string(adapterInfo.description.data, adapterInfo.description.length));
-
     }
 
     void GraphicsManager::RequestDeviceCallback(WGPURequestDeviceStatus status, WGPUDevice device, WGPUStringView message, void *userdata1, void* userdata2) {
@@ -70,7 +69,10 @@ namespace Citrus {
     }
 
     void GraphicsManager::Init() {
-        instance = wgpuCreateInstance({});
+        WGPUInstanceDescriptor instanceDescriptor = {
+            .nextInChain = nullptr,
+        };
+        instance = wgpuCreateInstance(&instanceDescriptor);
 
         InitDevice();
         LoadResources();
@@ -152,18 +154,20 @@ namespace Citrus {
         };
         wgpuQueueOnSubmittedWorkDone(queue, queueWorkDoneCallbackInfo);
 
-        //Setup command encoder
-        WGPUCommandEncoderDescriptor commandEncoderDescriptor = {
+        //configure the surface
+        WGPUSurfaceConfiguration surfaceConfiguration = {
             .nextInChain = nullptr,
-            .label = "Command Encoder",
+            .device = device,
+            .format = WGPUTextureFormat_BGRA8Unorm,
+            .usage = WGPUTextureUsage_RenderAttachment,
+            .width = window.GetWidth(),
+            .height = window.GetHeight(),
+            .viewFormatCount = 0,
+            .viewFormats = nullptr,
+            .alphaMode = WGPUCompositeAlphaMode_Auto,
+            .presentMode = WGPUPresentMode_Fifo,
         };
-        commandEncoder = wgpuDeviceCreateCommandEncoder(device, &commandEncoderDescriptor);
-
-        //test command
-        SubmitCommandsAndWait({
-            .nextInChain = nullptr,
-            .label = "Command Buffer",
-        });
+        wgpuSurfaceConfigure(surface, &surfaceConfiguration);
     }
 
     void GraphicsManager::LoadResources() {
@@ -186,21 +190,93 @@ namespace Citrus {
 
     }
 
-    void GraphicsManager::SubmitCommandsAndWait(WGPUCommandBufferDescriptor commandBufferDescriptor) {
-        WGPUCommandBuffer command = wgpuCommandEncoderFinish(commandEncoder, &commandBufferDescriptor);
-        wgpuCommandEncoderRelease(commandEncoder);
+    std::pair<WGPUSurfaceTexture, WGPUTextureView> GraphicsManager::GetNextSurfaceViewData() {
+        WGPUSurfaceTexture surfaceTexture;
+        wgpuSurfaceGetCurrentTexture(surface, &surfaceTexture);
 
-        CITRUS_CORE_INFO("submitting commands...");
+        if (!surfaceTexture.texture) {
+            CITRUS_CORE_ERROR("Failed to get current surface texture!");
+            return {surfaceTexture, nullptr};
+        }
+
+        WGPUTextureViewDescriptor viewDescriptor = {
+            .nextInChain = nullptr,
+            .label = "Surface View Texture",
+            .format = wgpuTextureGetFormat(surfaceTexture.texture),
+            .dimension = WGPUTextureViewDimension_2D,
+            .baseMipLevel = 0,
+            .mipLevelCount = 1,
+            .baseArrayLayer = 0,
+            .arrayLayerCount = 1,
+            .aspect = WGPUTextureAspect_All,
+        };
+        WGPUTextureView targetView = wgpuTextureCreateView(surfaceTexture.texture, &viewDescriptor);
+        return std::make_pair(surfaceTexture, targetView);
+    }
+
+    void GraphicsManager::Draw() {
+        //Setup command encoder
+        WGPUCommandEncoderDescriptor commandEncoderDescriptor = {
+            .nextInChain = nullptr,
+            .label = "Command Encoder",
+        };
+        commandEncoder = wgpuDeviceCreateCommandEncoder(device, &commandEncoderDescriptor);
+
+        //get surface textures
+        auto [surfaceTexture, targetView] = GetNextSurfaceViewData();
+        if (!targetView) return;
+
+        //describe render pass
+        WGPURenderPassColorAttachment renderPassColorAttachment = {
+            .nextInChain = nullptr,
+            .view = targetView,
+            .resolveTarget = nullptr,
+            .loadOp = WGPULoadOp_Clear,
+            .storeOp = WGPUStoreOp_Store,
+            .clearValue = WGPUColor{ 0.9, 0.1, 0.2, 1.0 },
+#ifndef WEBGPU_BACKEND_WGPU
+            .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
+#endif // NOT WEBGPU_BACKEND_WGPU
+        };
+        WGPURenderPassDescriptor renderPassDescriptor = {
+            .nextInChain = nullptr,
+            .colorAttachmentCount = 1,
+            .colorAttachments = &renderPassColorAttachment,
+            .depthStencilAttachment = nullptr,
+            .timestampWrites = nullptr,
+        };
+
+        //begin render pass
+        WGPURenderPassEncoder renderPassEncoder = wgpuCommandEncoderBeginRenderPass(commandEncoder, &renderPassDescriptor);
+        wgpuRenderPassEncoderEnd(renderPassEncoder);
+
+        //encode commands
+        WGPUCommandBufferDescriptor commandBufferDescriptor = {
+            .nextInChain = nullptr,
+            .label = "Command Buffer",
+        };
+        WGPUCommandBuffer command = wgpuCommandEncoderFinish(commandEncoder, &commandBufferDescriptor);
+
+        //submit command buffer
         wgpuQueueSubmit(queue, 1, &command);
+
+        //present rendered image
+        wgpuSurfacePresent(surface);
+
+        //reset
+        wgpuTextureViewRelease(targetView);
+        wgpuTextureRelease(surfaceTexture.texture);
         wgpuCommandBufferRelease(command);
-        CITRUS_CORE_INFO("command submitted");
+        wgpuRenderPassEncoderRelease(renderPassEncoder);
+        wgpuCommandEncoderRelease(commandEncoder);
     }
 
     void GraphicsManager::CleanUp() {
+        wgpuSurfaceUnconfigure(surface);
+
         wgpuAdapterRelease(adapter);
         wgpuDeviceRelease(device);
         wgpuQueueRelease(queue);
         wgpuSurfaceRelease(surface);
-        wgpuCommandEncoderRelease(commandEncoder);
     }
 }
