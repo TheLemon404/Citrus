@@ -3,8 +3,7 @@
 #include "log.hpp"
 
 namespace Citrus {
-    Application::Application() : m_window(1024, 768, "Citrus") {
-        m_graphicsManager = GraphicsManager();
+    Application::Application() : m_window(1024, 768, "Citrus"), m_graphicsManager(m_window) {
     }
 
     void Application::Run() {

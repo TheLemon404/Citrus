@@ -11,22 +11,22 @@ namespace Citrus {
             return;
         }
 
-        m_glfwWindow = glfwCreateWindow(m_width, m_height, m_title.c_str(), NULL, NULL);
-        if (!m_glfwWindow) {
+        s_glfwWindow = glfwCreateWindow(m_width, m_height, m_title.c_str(), NULL, NULL);
+        if (!s_glfwWindow) {
             CITRUS_CORE_ERROR("failed to create GLFW window");
             glfwTerminate();
             return;
         }
 
-        glfwMakeContextCurrent(m_glfwWindow);
+        glfwMakeContextCurrent(s_glfwWindow);
     }
 
     bool Window::ShouldClose() {
-        return glfwWindowShouldClose(m_glfwWindow);
+        return glfwWindowShouldClose(s_glfwWindow);
     }
 
     void Window::SwapBuffersAndPoll() {
-        glfwSwapBuffers(m_glfwWindow);
+        glfwSwapBuffers(s_glfwWindow);
         glfwPollEvents();
     }
 

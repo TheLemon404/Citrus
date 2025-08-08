@@ -1,10 +1,11 @@
 #pragma once
 
+#include <core/core.hpp>
 #include <cstddef>
 
 namespace Citrus {
     template<class T, unsigned int C>
-    class FixedVector {
+    class CITRUS_API FixedVector {
         T data[C];
         unsigned int marker = 0;
 

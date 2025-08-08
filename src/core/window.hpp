@@ -9,7 +9,7 @@ namespace Citrus {
     class CITRUS_API Window {
         unsigned int m_width, m_height;
         std::string m_title;
-        GLFWwindow* m_glfwWindow;
+        GLFWwindow* s_glfwWindow;
 
     public:
         Window(unsigned int width, unsigned int height, std::string title) : m_width(width), m_height(height), m_title(title) {};
@@ -18,5 +18,7 @@ namespace Citrus {
         bool ShouldClose();
         void SwapBuffersAndPoll();
         void Close();
+
+        GLFWwindow* GetGLFWWindow() { return s_glfwWindow; }
     };
 }
