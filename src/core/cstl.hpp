@@ -7,8 +7,14 @@ namespace Citrus {
         unsigned int marker = 0;
 
     public:
-        void Append(T item);
-        T Pop();
-        inline unsigned int Size() { return marker; }
+        void PushBack(T item);
+        void Insert(unsigned int index, T item);
+
+        T PopBack();
+        void Clear();
+
+        const size_t Size() { return marker; }
+        const size_t Capacity() { return marker * sizeof(T); }
+        const size_t FullCapacity() { return C * sizeof(T); }
     };
 }
