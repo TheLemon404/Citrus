@@ -4,7 +4,6 @@ project(Citrus)
 set(CMAKE_CXX_STANDARD 20)
 
 add_subdirectory(dependencies/glfw)
-add_subdirectory(dependencies/glfw3webgpu)
 add_subdirectory(dependencies/webgpu)
 
 file(GLOB_RECURSE SRC CONFIGURE_DEPENDS "src/*.cpp" "src/*.hpp")

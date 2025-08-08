@@ -16,6 +16,8 @@ namespace Citrus {
         WGPUSurface surface;
         WGPUAdapter adapter;
         WGPUDevice device;
+        WGPUQueue queue;
+        WGPUCommandEncoder commandEncoder;
         GraphicalSettings graphicalSettings;
 
         Window& window;
@@ -29,6 +31,7 @@ namespace Citrus {
         static void RequestDeviceCallback(WGPURequestDeviceStatus status, WGPUDevice device, WGPUStringView message, void* userdata1, void* userdata2);
         static void DeviceLostCallback(WGPUDevice const * device, WGPUDeviceLostReason reason, WGPUStringView message, void* userdata1, void* userdata2);
         static void UncapturedErrorCallback(WGPUDevice const * device, WGPUErrorType type, WGPUStringView message, void* userdata1, void* userdata2);
+        static void QueueWorkDownCallback(WGPUQueueWorkDoneStatus status, void* userdata1, void* userdata2);
 
         void InitDevice();
 
@@ -40,7 +43,11 @@ namespace Citrus {
 
         void FetchResults();
 
+        void SubmitCommandsAndWait(WGPUCommandBufferDescriptor commandBufferDescriptor);
+
     public:
         void Init();
+
+        void CleanUp();
     };
 }

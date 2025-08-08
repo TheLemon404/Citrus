@@ -1,6 +1,15 @@
 #include "graphicsManager.hpp"
 #include "core/log.hpp"
 
+#include <webgpu/webgpu.h>
+#include <GLFW/glfw3.h>
+
+#ifdef _WIN32
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+#include <windows.h>
+#endif
+
 namespace Citrus {
     void GraphicsManager::RequestAdapterCallback(WGPURequestAdapterStatus status, WGPUAdapter adapter, WGPUStringView message, void *userdata1, void* userdata2) {
         GraphicsManager* manager = static_cast<GraphicsManager*>(userdata1);
@@ -50,6 +59,10 @@ namespace Citrus {
         CITRUS_CORE_ERROR(" Error: {}", std::string(message.data, message.length));
     }
 
+    void GraphicsManager::QueueWorkDownCallback(WGPUQueueWorkDoneStatus status, void *userdata1, void *userdata2) {
+        CITRUS_CORE_INFO("Queue work finished with status: {}", (int)status);
+    }
+
     void GraphicsManager::DeviceLostCallback(WGPUDevice const *device, WGPUDeviceLostReason reason, WGPUStringView message, void *userdata1, void *userdata2) {
         CITRUS_CORE_FATAL("Device lost: ");
         CITRUS_CORE_FATAL(" reason: {}", (int)reason);
@@ -68,11 +81,31 @@ namespace Citrus {
     }
 
     void GraphicsManager::InitDevice() {
+        //get glfw window surface
+        HWND hwnd = glfwGetWin32Window(window.GetGLFWWindow());
+        HINSTANCE hinstance = GetModuleHandle(nullptr);
+
+        WGPUSurfaceSourceWindowsHWND win32SurfaceSrc = {
+            .chain = {
+                .next = nullptr,
+                .sType = WGPUSType_SurfaceSourceWindowsHWND,
+            },
+            .hinstance = hinstance,
+            .hwnd = hwnd,
+        };
+
+        WGPUSurfaceDescriptor surfaceDesc = {
+            .nextInChain = &win32SurfaceSrc.chain,
+            .label = "GLFW Surface"
+        };
+        surface = wgpuInstanceCreateSurface(instance, &surfaceDesc);
+
         //request and setup adapter
         WGPURequestAdapterOptions requestAdapterOptions = {
             .nextInChain = nullptr,
             .powerPreference = graphicalSettings.powerPreference,
             .backendType = graphicalSettings.backendType,
+            .compatibleSurface = surface,
         };
         WGPURequestAdapterCallbackInfo requestAdapterCallbackInfo = {
             .nextInChain = nullptr,
@@ -111,6 +144,26 @@ namespace Citrus {
         };
         wgpuAdapterRequestDevice(adapter, &deviceDescriptor, requestDeviceCallbackInfo);
 
+        //Get primary queue
+        queue = wgpuDeviceGetQueue(device);
+        WGPUQueueWorkDoneCallbackInfo queueWorkDoneCallbackInfo = {
+            .nextInChain = nullptr,
+            .callback = QueueWorkDownCallback,
+        };
+        wgpuQueueOnSubmittedWorkDone(queue, queueWorkDoneCallbackInfo);
+
+        //Setup command encoder
+        WGPUCommandEncoderDescriptor commandEncoderDescriptor = {
+            .nextInChain = nullptr,
+            .label = "Command Encoder",
+        };
+        commandEncoder = wgpuDeviceCreateCommandEncoder(device, &commandEncoderDescriptor);
+
+        //test command
+        SubmitCommandsAndWait({
+            .nextInChain = nullptr,
+            .label = "Command Buffer",
+        });
     }
 
     void GraphicsManager::LoadResources() {
@@ -131,5 +184,23 @@ namespace Citrus {
 
     void GraphicsManager::FetchResults() {
 
+    }
+
+    void GraphicsManager::SubmitCommandsAndWait(WGPUCommandBufferDescriptor commandBufferDescriptor) {
+        WGPUCommandBuffer command = wgpuCommandEncoderFinish(commandEncoder, &commandBufferDescriptor);
+        wgpuCommandEncoderRelease(commandEncoder);
+
+        CITRUS_CORE_INFO("submitting commands...");
+        wgpuQueueSubmit(queue, 1, &command);
+        wgpuCommandBufferRelease(command);
+        CITRUS_CORE_INFO("command submitted");
+    }
+
+    void GraphicsManager::CleanUp() {
+        wgpuAdapterRelease(adapter);
+        wgpuDeviceRelease(device);
+        wgpuQueueRelease(queue);
+        wgpuSurfaceRelease(surface);
+        wgpuCommandEncoderRelease(commandEncoder);
     }
 }
