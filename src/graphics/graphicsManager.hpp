@@ -25,6 +25,9 @@ namespace Citrus {
     public:
         GraphicsManager(Window& window) : window(window) {};
 
+        //public callbacks
+        void OnFramebufferResized(unsigned int width, unsigned int height);
+
     private:
         //WebGPU async callbacks
         static void RequestAdapterCallback(WGPURequestAdapterStatus status, WGPUAdapter adapter, WGPUStringView message, void* userdata1, void* userdata2);

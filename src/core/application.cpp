@@ -9,6 +9,7 @@ namespace Citrus {
     void Application::Run() {
         Log::Init();
         m_window.Open();
+        glfwSetWindowUserPointer(m_window.GetGLFWWindow(), this);
         m_graphicsManager.Init();
 
         while (!m_window.ShouldClose()) {

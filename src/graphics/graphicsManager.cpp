@@ -11,6 +11,22 @@
 #endif
 
 namespace Citrus {
+    void GraphicsManager::OnFramebufferResized(unsigned int width, unsigned int height) {
+        WGPUSurfaceConfiguration surfaceConfiguration = {
+            .nextInChain = nullptr,
+            .device = device,
+            .format = WGPUTextureFormat_BGRA8Unorm,
+            .usage = WGPUTextureUsage_RenderAttachment,
+            .width = width,
+            .height = height,
+            .viewFormatCount = 0,
+            .viewFormats = nullptr,
+            .alphaMode = WGPUCompositeAlphaMode_Auto,
+            .presentMode = WGPUPresentMode_Fifo,
+        };
+        wgpuSurfaceConfigure(surface, &surfaceConfiguration);
+    }
+
     void GraphicsManager::RequestAdapterCallback(WGPURequestAdapterStatus status, WGPUAdapter adapter, WGPUStringView message, void *userdata1, void* userdata2) {
         GraphicsManager* manager = static_cast<GraphicsManager*>(userdata1);
         manager->adapter = adapter;

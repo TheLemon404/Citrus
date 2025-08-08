@@ -6,10 +6,10 @@
 
 namespace Citrus {
     class CITRUS_API Application {
+    public:
         Window m_window;
         GraphicsManager m_graphicsManager;
 
-    public:
         Application();
 
         void Run();
