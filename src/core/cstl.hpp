@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 namespace Citrus {
     template<class T, unsigned int C>
     class FixedVector {
