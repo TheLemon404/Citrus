@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "core/core.hpp"
 #include <webgpu/webgpu.h>
 
@@ -20,7 +22,28 @@ namespace Citrus {
         WGPUCommandEncoder commandEncoder;
         GraphicalSettings graphicalSettings;
 
+        const WGPUTextureFormat surfaceFormat = WGPUTextureFormat_BGRA8Unorm;
+
+        //pipelines
+        WGPURenderPipeline pipeline;
+
+        //shaders
+        WGPUShaderModule shaderModule;
+
         Window& window;
+
+        std::vector<float> vertexData = {
+            // x0, y0
+            -0.5, -0.5, 0.0,
+
+            // x1, y1
+            0.5, -0.5, 0.0,
+
+            // x2, y2
+            0.0, 0.5, 0.0
+        };
+        WGPUBuffer vertexBuffer;
+
 
     public:
         GraphicsManager(Window& window) : window(window) {};
@@ -41,10 +64,6 @@ namespace Citrus {
         void LoadResources();
         void InitBindings();
         void InitPipelines();
-
-        void SubmitCommands();
-
-        void FetchResults();
 
         std::pair<WGPUSurfaceTexture, WGPUTextureView> GetNextSurfaceViewData();
 

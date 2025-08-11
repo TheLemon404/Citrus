@@ -38,3 +38,5 @@ set_target_properties(Citrus PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
         ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
 )
+
+file(COPY resources DESTINATION ${CMAKE_BINARY_DIR}/bin)

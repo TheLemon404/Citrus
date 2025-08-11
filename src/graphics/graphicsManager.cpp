@@ -4,6 +4,8 @@
 #include <webgpu/webgpu.h>
 #include <GLFW/glfw3.h>
 
+#include "core/files.hpp"
+
 #ifdef _WIN32
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
@@ -66,6 +68,7 @@ namespace Citrus {
         CITRUS_CORE_INFO(" - maxTextureArrayLayers: {}", deviceLimits.maxTextureArrayLayers);
         CITRUS_CORE_INFO(" - maxBindGroups: {}", deviceLimits.maxBindGroups);
         CITRUS_CORE_INFO(" - maxBufferSize: {}", deviceLimits.maxBufferSize);
+        CITRUS_CORE_INFO(" - maxVertexAttributes: {}", deviceLimits.maxVertexAttributes);
     }
 
     void GraphicsManager::UncapturedErrorCallback(WGPUDevice const *device, WGPUErrorType type, WGPUStringView message, void *userdata1, void *userdata2) {
@@ -187,7 +190,6 @@ namespace Citrus {
     }
 
     void GraphicsManager::LoadResources() {
-
     }
 
     void GraphicsManager::InitBindings() {
@@ -195,15 +197,111 @@ namespace Citrus {
     }
 
     void GraphicsManager::InitPipelines() {
+        //shaders
+        std::string shaderCodeText = FileSystem::ReadFileString("resources/shaders/lit.wgsl");
 
-    }
+        if (shaderCodeText.empty()) {
+            CITRUS_CORE_ERROR("Shader code is empty! Cannot create shader module.");
+            return;
+        }
 
-    void GraphicsManager::SubmitCommands() {
+        CITRUS_CORE_INFO("Shader code loaded, length: {}", shaderCodeText.length());
 
-    }
+        WGPUShaderSourceWGSL shaderCode = {
+            .chain = {
+                .next = nullptr,
+                .sType = WGPUSType_ShaderSourceWGSL,
+            },
+            .code = {
+                .data = shaderCodeText.c_str(),
+                .length = strlen(shaderCodeText.c_str()),
+                }
+        };
 
-    void GraphicsManager::FetchResults() {
+        WGPUShaderModuleDescriptor shaderModuleDescriptor = {
+            .nextInChain = &shaderCode.chain,
+            .label = "Shader Module",
+        };
 
+        shaderModule = wgpuDeviceCreateShaderModule(device, &shaderModuleDescriptor);
+
+        if (!shaderModule) {
+            CITRUS_CORE_ERROR("Failed to create shader module!");
+            return;
+        }
+
+        CITRUS_CORE_INFO("Shader module created successfully");
+
+        // Pipelines
+        WGPUBlendState blendState = {
+            .color = {
+                .operation = WGPUBlendOperation_Add,
+                .srcFactor = WGPUBlendFactor_SrcAlpha,
+                .dstFactor = WGPUBlendFactor_OneMinusSrcAlpha,
+            },
+            .alpha = {
+                .operation = WGPUBlendOperation_Add,
+                .srcFactor = WGPUBlendFactor_Zero,
+                .dstFactor = WGPUBlendFactor_One,
+            }
+        };
+
+        WGPUColorTargetState colorTarget = {
+            .format = surfaceFormat,
+            .blend = &blendState,
+            .writeMask = WGPUColorWriteMask_All
+        };
+
+        WGPUFragmentState fragmentState = {
+            .module = shaderModule,
+            .entryPoint = {
+                .data = "fs_main",
+                .length = strlen("fs_main"),
+                },
+            .constantCount = 0,
+            .constants = nullptr,
+            .targetCount = 1,
+            .targets = &colorTarget,
+        };
+
+        WGPURenderPipelineDescriptor pipelineDesc = {
+            .nextInChain = nullptr,
+            .label = "Render Pipeline",
+            .layout = nullptr,
+            .vertex = {
+                .module = shaderModule,
+                .entryPoint = {
+                    .data = "vs_main",
+                    .length = strlen("vs_main"),
+                },
+                .constantCount = 0,
+                .constants = nullptr,
+                .bufferCount = 0,
+                .buffers = nullptr,
+            },
+            .primitive = {
+                .topology = WGPUPrimitiveTopology_TriangleList,
+                .stripIndexFormat = WGPUIndexFormat_Undefined,
+                .frontFace = WGPUFrontFace_CCW,
+                .cullMode = WGPUCullMode_None,
+            },
+            .depthStencil = nullptr,
+            .multisample = {
+                .count = 1,
+                .mask = ~0u,
+                .alphaToCoverageEnabled = false
+            },
+            .fragment = &fragmentState,
+        };
+
+        pipeline = wgpuDeviceCreateRenderPipeline(device, &pipelineDesc);
+
+        if (!pipeline) {
+            CITRUS_CORE_ERROR("Failed to create render pipeline!");
+            return;
+        }
+
+        CITRUS_CORE_INFO("Render pipeline created successfully");
     }
 
     std::pair<WGPUSurfaceTexture, WGPUTextureView> GraphicsManager::GetNextSurfaceViewData() {
@@ -231,6 +329,12 @@ namespace Citrus {
     }
 
     void GraphicsManager::Draw() {
+        //Check if pipeline is valid before drawing
+        if (!pipeline) {
+            CITRUS_CORE_ERROR("Pipeline is invalid, skipping draw");
+            return;
+        }
+
         //Setup command encoder
         WGPUCommandEncoderDescriptor commandEncoderDescriptor = {
             .nextInChain = nullptr,
@@ -263,8 +367,10 @@ namespace Citrus {
         };
 
         //begin render pass
-        WGPURenderPassEncoder renderPassEncoder = wgpuCommandEncoderBeginRenderPass(commandEncoder, &renderPassDescriptor);
-        wgpuRenderPassEncoderEnd(renderPassEncoder);
+        WGPURenderPassEncoder renderPass = wgpuCommandEncoderBeginRenderPass(commandEncoder, &renderPassDescriptor);
+        wgpuRenderPassEncoderSetPipeline(renderPass, pipeline);
+        wgpuRenderPassEncoderDraw(renderPass, 3, 1, 0, 0);
+        wgpuRenderPassEncoderEnd(renderPass);
 
         //encode commands
         WGPUCommandBufferDescriptor commandBufferDescriptor = {
@@ -283,13 +389,15 @@ namespace Citrus {
         wgpuTextureViewRelease(targetView);
         wgpuTextureRelease(surfaceTexture.texture);
         wgpuCommandBufferRelease(command);
-        wgpuRenderPassEncoderRelease(renderPassEncoder);
+        wgpuRenderPassEncoderRelease(renderPass);
         wgpuCommandEncoderRelease(commandEncoder);
     }
 
     void GraphicsManager::CleanUp() {
         wgpuSurfaceUnconfigure(surface);
 
+        wgpuShaderModuleRelease(shaderModule);
+        wgpuRenderPipelineRelease(pipeline);
         wgpuAdapterRelease(adapter);
         wgpuDeviceRelease(device);
         wgpuQueueRelease(queue);
