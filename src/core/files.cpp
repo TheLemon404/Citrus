@@ -34,9 +34,6 @@ namespace Citrus {
             return "";
         }
 
-        // Check current working directory
-        CITRUS_CORE_INFO("Current working directory: {}", std::filesystem::current_path().string());
-
         std::ifstream file(filepath, std::ios::in | std::ios::binary);
 
         if (!file.is_open()) {
@@ -49,8 +46,6 @@ namespace Citrus {
         std::streamsize size = file.tellg();
         file.seekg(0, std::ios::beg);
 
-        CITRUS_CORE_INFO("File size: {} bytes", size);
-
         if (size == 0) {
             CITRUS_CORE_ERROR("File is empty: {}", filepath.string());
             return "";
@@ -61,12 +56,6 @@ namespace Citrus {
                             std::istreambuf_iterator<char>());
 
         CITRUS_CORE_INFO("File {} loaded successfully ({} bytes)", filepath.string(), content.size());
-
-        // Debug: show first 100 characters
-        if (content.size() > 0) {
-            std::string preview = content.substr(0, std::min<size_t>(100, content.size()));
-            CITRUS_CORE_INFO("File preview: {}", preview);
-        }
 
         return content;
     }

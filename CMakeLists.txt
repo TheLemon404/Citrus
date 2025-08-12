@@ -13,6 +13,22 @@ target_link_libraries(Citrus PRIVATE glfw webgpu)
 target_include_directories(Citrus PRIVATE dependencies/glfw/include dependencies/webgpu/dawn/include dependencies/spdlog/include)
 target_copy_webgpu_binaries(Citrus)
 
+# In your CMakeLists.txt
+if(MSVC)
+    add_compile_options(/MP)  # Multi-processor compilation
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")  # Handle large object files
+endif()
+
+# Set parallel jobs
+set(CMAKE_BUILD_PARALLEL_LEVEL 8)  # Adjust based on your CPU cores
+
+set(DAWN_BUILD_SAMPLES OFF)
+set(DAWN_BUILD_TESTS OFF)
+set(DAWN_BUILD_DOCS OFF)
+set(TINT_BUILD_TESTS OFF)
+set(TINT_BUILD_DOCS OFF)
+set(DAWN_USE_X11 OFF)  # If not using X11
+set(DAWN_USE_WAYLAND OFF)  # If not using Wayland
 
 # Set up include directories for consumers of this library
 target_include_directories(Citrus PUBLIC

@@ -117,7 +117,10 @@ namespace Citrus {
 
         WGPUSurfaceDescriptor surfaceDesc = {
             .nextInChain = &win32SurfaceSrc.chain,
-            .label = "GLFW Surface"
+            .label = {
+                .data = "GLFW Surface",
+                .length = strlen("GLFW Surface"),
+                }
         };
         surface = wgpuInstanceCreateSurface(instance, &surfaceDesc);
 
@@ -147,12 +150,18 @@ namespace Citrus {
         };
         WGPUDeviceDescriptor deviceDescriptor = {
             .nextInChain = nullptr,
-            .label = "Primary Graphics Device",
+            .label = {
+                .data = "Primary Graphics Device",
+                .length = strlen("Primary Graphics Device"),
+                },
             .requiredFeatureCount = 0,
             .requiredLimits = nullptr,
             .defaultQueue = {
                 .nextInChain = nullptr,
-                .label = "Default Queue"
+                .label = {
+                    .data = "Default Queue",
+                    .length = strlen("Default Queue"),
+                    }
             },
             .deviceLostCallbackInfo = deviceLostCallbackInfo,
             .uncapturedErrorCallbackInfo = uncapturedErrorCallbackInfo,
@@ -193,7 +202,65 @@ namespace Citrus {
     }
 
     void GraphicsManager::InitBindings() {
+        WGPUBufferDescriptor bufferDesc = {
+            .label = {
+                .data = "Position Buffer",
+                .length = strlen("Vertex Buffer"),
+            },
+            .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex,
+            .size = positionData.size() * sizeof(positionData[0]),
+            .mappedAtCreation = false,
+        };
+        positionBuffer = wgpuDeviceCreateBuffer(device, &bufferDesc);
+        wgpuQueueWriteBuffer(queue, positionBuffer, 0, positionData.data(), bufferDesc.size);
 
+        WGPUBufferDescriptor colorBufferDesc = {
+            .label = {
+                .data = "Color Buffer",
+                .length = strlen("Color Buffer"),
+            },
+            .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex,
+            .size = colorData.size() * sizeof(colorData[0]),
+            .mappedAtCreation = false,
+        };
+        colorBuffer = wgpuDeviceCreateBuffer(device, &colorBufferDesc);
+        wgpuQueueWriteBuffer(queue, colorBuffer, 0, colorData.data(), colorBufferDesc.size);
+
+        WGPUBufferDescriptor indexBufferDesc = {
+            .label = {
+                .data = "Index Buffer",
+                .length = strlen("Index Buffer"),
+            },
+            .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Index,
+            .size = indexData.size() * sizeof(indexData[0]),
+            .mappedAtCreation = false,
+        };
+        indexBuffer = wgpuDeviceCreateBuffer(device, &indexBufferDesc);
+        wgpuQueueWriteBuffer(queue, indexBuffer, 0, indexData.data(), indexBufferDesc.size);
+
+        //VAO equivilent
+        positionAttribute = {
+            .format = WGPUVertexFormat_Float32x3,
+            .offset = 0,
+            .shaderLocation = 0,
+        };
+        colorAttribute = {
+            .format = WGPUVertexFormat_Float32x3,
+            .offset = 0,
+            .shaderLocation = 1
+        };
+        vertexBufferLayout.push_back({
+            .stepMode = WGPUVertexStepMode_Vertex,
+            .arrayStride = 3 * sizeof(float),
+            .attributeCount = 1,
+            .attributes = &positionAttribute,
+        });
+        vertexBufferLayout.push_back({
+            .stepMode = WGPUVertexStepMode_Vertex,
+            .arrayStride = 3 * sizeof(float),
+            .attributeCount = 1,
+            .attributes = &colorAttribute
+        });
     }
 
     void GraphicsManager::InitPipelines() {
@@ -220,7 +287,10 @@ namespace Citrus {
 
         WGPUShaderModuleDescriptor shaderModuleDescriptor = {
             .nextInChain = &shaderCode.chain,
-            .label = "Shader Module",
+            .label = {
+                .data = "Shader Module",
+                .length = strlen("Shader Module"),
+                }
         };
 
         shaderModule = wgpuDeviceCreateShaderModule(device, &shaderModuleDescriptor);
@@ -266,7 +336,10 @@ namespace Citrus {
 
         WGPURenderPipelineDescriptor pipelineDesc = {
             .nextInChain = nullptr,
-            .label = "Render Pipeline",
+            .label = {
+                .data = "Render Pipeline",
+                .length = strlen("Render Pipeline"),
+                },
             .layout = nullptr,
             .vertex = {
                 .module = shaderModule,
@@ -276,8 +349,8 @@ namespace Citrus {
                 },
                 .constantCount = 0,
                 .constants = nullptr,
-                .bufferCount = 0,
-                .buffers = nullptr,
+                .bufferCount = static_cast<uint32_t>(vertexBufferLayout.size()),
+                .buffers = vertexBufferLayout.data(),
             },
             .primitive = {
                 .topology = WGPUPrimitiveTopology_TriangleList,
@@ -315,7 +388,10 @@ namespace Citrus {
 
         WGPUTextureViewDescriptor viewDescriptor = {
             .nextInChain = nullptr,
-            .label = "Surface View Texture",
+            .label = {
+                .data = "Surface View Texture",
+                .length = strlen("Surface View Texture"),
+                },
             .format = wgpuTextureGetFormat(surfaceTexture.texture),
             .dimension = WGPUTextureViewDimension_2D,
             .baseMipLevel = 0,
@@ -338,7 +414,10 @@ namespace Citrus {
         //Setup command encoder
         WGPUCommandEncoderDescriptor commandEncoderDescriptor = {
             .nextInChain = nullptr,
-            .label = "Command Encoder",
+            .label = {
+                .data = "Command Encoder",
+                .length = strlen("Command Encoder"),
+                }
         };
         commandEncoder = wgpuDeviceCreateCommandEncoder(device, &commandEncoderDescriptor);
 
@@ -369,13 +448,19 @@ namespace Citrus {
         //begin render pass
         WGPURenderPassEncoder renderPass = wgpuCommandEncoderBeginRenderPass(commandEncoder, &renderPassDescriptor);
         wgpuRenderPassEncoderSetPipeline(renderPass, pipeline);
-        wgpuRenderPassEncoderDraw(renderPass, 3, 1, 0, 0);
+        wgpuRenderPassEncoderSetVertexBuffer(renderPass, 0, positionBuffer, 0, wgpuBufferGetSize(positionBuffer));
+        wgpuRenderPassEncoderSetVertexBuffer(renderPass, 1, colorBuffer, 0, wgpuBufferGetSize(colorBuffer));
+        wgpuRenderPassEncoderSetIndexBuffer(renderPass, indexBuffer, WGPUIndexFormat_Uint16, 0, wgpuBufferGetSize(indexBuffer));
+        wgpuRenderPassEncoderDrawIndexed(renderPass, indexData.size(), 1, 0, 0, 0);
         wgpuRenderPassEncoderEnd(renderPass);
 
         //encode commands
         WGPUCommandBufferDescriptor commandBufferDescriptor = {
             .nextInChain = nullptr,
-            .label = "Command Buffer",
+            .label = {
+                .data = "Command Buffer",
+                .length = strlen("Command Buffer"),
+                }
         };
         WGPUCommandBuffer command = wgpuCommandEncoderFinish(commandEncoder, &commandBufferDescriptor);
 
@@ -395,6 +480,10 @@ namespace Citrus {
 
     void GraphicsManager::CleanUp() {
         wgpuSurfaceUnconfigure(surface);
+
+        wgpuBufferRelease(positionBuffer);
+        wgpuBufferRelease(colorBuffer);
+        wgpuBufferRelease(indexBuffer);
 
         wgpuShaderModuleRelease(shaderModule);
         wgpuRenderPipelineRelease(pipeline);

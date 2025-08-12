@@ -1,15 +1,22 @@
-@vertex
-fn vs_main(@builtin(vertex_index) vertex_index: u32) -> @builtin(position) vec4f {
-    var positions = array<vec2f, 3>(
-        vec2f(-0.5, -0.5),
-        vec2f( 0.5, -0.5),
-        vec2f( 0.0,  0.5)
-    );
+struct VertexInput {
+    @location(0) position: vec3f,
+    @location(1) color: vec3f,
+};
 
-    return vec4f(positions[vertex_index], 0.0, 1.0);
+struct VertexOutput {
+    @builtin(position) position: vec4f,
+    @location(0) color: vec3f,
+};
+
+@vertex
+fn vs_main(in: VertexInput) -> VertexOutput {
+    var out: VertexOutput;
+    out.position = vec4f(in.position, 1.0f);
+    out.color = in.color;
+    return out;
 }
 
 @fragment
-fn fs_main() -> @location(0) vec4f {
-    return vec4f(1.0, 0.5, 0.2, 1.0);
+fn fs_main(in: VertexOutput) -> @location(0) vec4f {
+    return vec4f(in.color, 1.0);
 }

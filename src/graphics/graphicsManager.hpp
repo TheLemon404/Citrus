@@ -32,17 +32,33 @@ namespace Citrus {
 
         Window& window;
 
-        std::vector<float> vertexData = {
-            // x0, y0
+        // x0, y0, x1, y1, ...
+        std::vector<float> positionData = {
             -0.5, -0.5, 0.0,
-
-            // x1, y1
-            0.5, -0.5, 0.0,
-
-            // x2, y2
-            0.0, 0.5, 0.0
+            +0.5, -0.5, 0.0,
+            +0.5, +0.5, 0.0,
+            -0.5, +0.5, 0.0,
         };
-        WGPUBuffer vertexBuffer;
+
+        // r0,  g0,  b0, r1,  g1,  b1, ...
+        std::vector<float> colorData = {
+            1.0, 0.0, 0.0,
+            0.0, 1.0, 0.0,
+            0.0, 0.0, 1.0,
+            1.0, 1.0, 0.0,
+        };
+
+        std::vector<uint16_t> indexData = {
+            0, 1, 2, // Triangle #0 connects points #0, #1 and #2
+            0, 2, 3  // Triangle #1 connects points #0, #2 and #3
+        };
+
+        WGPUVertexAttribute positionAttribute;
+        WGPUVertexAttribute colorAttribute;
+        std::vector<WGPUVertexBufferLayout> vertexBufferLayout;
+        WGPUBuffer positionBuffer;
+        WGPUBuffer colorBuffer;
+        WGPUBuffer indexBuffer;
 
 
     public:
