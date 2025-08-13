@@ -2,16 +2,31 @@ cmake_minimum_required(VERSION 3.31)
 project(Citrus)
 
 set(CMAKE_CXX_STANDARD 20)
-
+set(DAWN_DLL ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/webgpu/bin/wgpu-windows-x86_64-gnu-release/wgpu_native.dll)
+set(DAWN_LIB ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/webgpu/bin/wgpu-windows-x86_64-gnu-release/libwgpu_native.a)
 add_subdirectory(dependencies/glfw)
-add_subdirectory(dependencies/webgpu)
 
 file(GLOB_RECURSE SRC CONFIGURE_DEPENDS "src/*.cpp" "src/*.hpp")
 add_library(Citrus SHARED ${SRC})
 
-target_link_libraries(Citrus PRIVATE glfw webgpu)
-target_include_directories(Citrus PRIVATE dependencies/glfw/include dependencies/webgpu/wgpu-native/include dependencies/spdlog/include)
-target_copy_webgpu_binaries(Citrus)
+target_link_libraries(Citrus PRIVATE
+        glfw
+        ${DAWN_LIB}
+
+        # Required Windows system libs
+        opengl32
+        d3dcompiler           # For D3DCompile
+        ws2_32                # For WSAStartup, WSACleanup
+        bcrypt                # Commonly required by Windows APIs
+        runtimeobject         # For RoOriginateErrorW (WinRT)
+        propsys              # For PropVariantToBSTR, etc.
+        userenv
+        ntdll
+)
+target_include_directories(Citrus PRIVATE
+        dependencies/glfw/include
+        dependencies/webgpu/include
+        dependencies/spdlog/include)
 
 # In your CMakeLists.txt
 if(MSVC)
@@ -35,12 +50,12 @@ target_include_directories(Citrus PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependencies/glfw/include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependencies/spdlog/include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependencies/webgpu/dawn/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependencies/webgpu/include>
         $<INSTALL_INTERFACE:include>
 )
 
 function(citrus_target_link_dependency_libraries target)
-    target_link_libraries(${target} PRIVATE webgpu)
+    target_link_libraries(${target} PRIVATE ${DAWN_LIB})
 endfunction()
 
 # Set DLL export/import macros (if using Windows)
@@ -56,3 +71,4 @@ set_target_properties(Citrus PROPERTIES
 )
 
 file(COPY resources DESTINATION ${CMAKE_BINARY_DIR}/bin)
+file(COPY ${DAWN_DLL} DESTINATION ${CMAKE_BINARY_DIR}/bin)

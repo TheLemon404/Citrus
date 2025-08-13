@@ -30,7 +30,7 @@ namespace Citrus {
         wgpuSurfaceConfigure(surface, &surfaceConfiguration);
     }
 
-    void GraphicsManager::RequestAdapterCallback(WGPURequestAdapterStatus status, WGPUAdapter adapter, WGPUStringView message, void *userdata1, void* userdata2) {
+    void GraphicsManager::RequestAdapterCallback(WGPURequestAdapterStatus status, WGPUAdapter adapter, WGPUStringView message, void* userdata1, void* userdata2) {
         GraphicsManager* manager = static_cast<GraphicsManager*>(userdata1);
         manager->adapter = adapter;
 
@@ -306,6 +306,8 @@ namespace Citrus {
             .visibility = WGPUShaderStage_Vertex,
             .buffer = {
                 .type = WGPUBufferBindingType_Uniform,
+                .hasDynamicOffset = false,
+                .minBindingSize = sizeof(ModelUniforms)
             }
         });
         layoutEntries.push_back({
@@ -346,7 +348,6 @@ namespace Citrus {
             .entries = bindEntries.data(),
         };
         bindGroup = wgpuDeviceCreateBindGroup(device, &bindGroupDesc);
-
     }
 
     void GraphicsManager::InitPipelines() {
@@ -524,13 +525,13 @@ namespace Citrus {
         WGPURenderPassColorAttachment renderPassColorAttachment = {
             .nextInChain = nullptr,
             .view = targetView,
+#ifndef WEBGPU_BACKEND_WGPU
+.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
+#endif // NOT WEBGPU_BACKEND_WGPU
             .resolveTarget = nullptr,
             .loadOp = WGPULoadOp_Clear,
             .storeOp = WGPUStoreOp_Store,
             .clearValue = WGPUColor{ 0.9, 0.1, 0.2, 1.0 },
-#ifndef WEBGPU_BACKEND_WGPU
-            .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
-#endif // NOT WEBGPU_BACKEND_WGPU
         };
         WGPURenderPassDescriptor renderPassDescriptor = {
             .nextInChain = nullptr,
@@ -548,7 +549,7 @@ namespace Citrus {
         wgpuRenderPassEncoderSetIndexBuffer(renderPass, indexBuffer, WGPUIndexFormat_Uint16, 0, wgpuBufferGetSize(indexBuffer));
 
         //uniforms
-        wgpuRenderPassEncoderSetBindGroup(renderPass, 0, bindGroup, 0, nullptr);
+        wgpuRenderPassEncoderSetBindGroup(renderPass, 0, bindGroup, 0, 0);
         wgpuRenderPassEncoderDrawIndexed(renderPass, indexData.size(), 1, 0, 0, 0);
 
         wgpuRenderPassEncoderEnd(renderPass);
