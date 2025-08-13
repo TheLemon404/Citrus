@@ -4,6 +4,7 @@
 #include <webgpu/webgpu.h>
 #include <GLFW/glfw3.h>
 
+#include "../../dependencies/glm/glm/ext/matrix_transform.hpp"
 #include "core/files.hpp"
 
 #ifdef _WIN32
@@ -95,6 +96,7 @@ namespace Citrus {
 
         InitDevice();
         LoadResources();
+        InitBuffers();
         InitBindings();
         InitPipelines();
 
@@ -201,7 +203,7 @@ namespace Citrus {
     void GraphicsManager::LoadResources() {
     }
 
-    void GraphicsManager::InitBindings() {
+    void GraphicsManager::InitBuffers() {
         WGPUBufferDescriptor bufferDesc = {
             .label = {
                 .data = "Position Buffer",
@@ -261,6 +263,90 @@ namespace Citrus {
             .attributeCount = 1,
             .attributes = &colorAttribute
         });
+    }
+
+    void GraphicsManager::InitBindings() {
+        // set buffersj
+        WGPUBufferDescriptor modelUniformsBufferDesc = {
+            .label = {
+                .data = "Model Uniforms",
+                .length = strlen("Model Uniforms"),
+            },
+            .usage = WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst,
+            .size = sizeof(ModelUniforms),
+            .mappedAtCreation = false,
+        };
+        modelUniformsBuffer = wgpuDeviceCreateBuffer(device, &modelUniformsBufferDesc);
+        ModelUniforms modelUniforms = {
+            .transform = glm::identity<glm::mat4x4>()
+        };
+        wgpuQueueWriteBuffer(queue, modelUniformsBuffer, 0, &modelUniforms, sizeof(modelUniforms));
+
+        WGPUBufferDescriptor worldUniformsBufferDesc = {
+            .label = {
+                .data = "World Uniforms",
+                .length = strlen("World Uniforms"),
+            },
+            .usage = WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst,
+            .size = sizeof(WorldUniforms),
+            .mappedAtCreation = false,
+        };
+        worldUniformsBuffer = wgpuDeviceCreateBuffer(device, &worldUniformsBufferDesc);
+        WorldUniforms worldUniforms = {
+            .view = glm::identity<glm::mat4x4>(),
+            .projection = glm::identity<glm::mat4x4>(),
+        };
+        wgpuQueueWriteBuffer(queue, worldUniformsBuffer, 0, &worldUniforms, sizeof(worldUniforms));
+
+        //bind groups
+        std::vector<WGPUBindGroupLayoutEntry> layoutEntries;
+
+        layoutEntries.push_back({
+            .binding = 0,
+            .visibility = WGPUShaderStage_Vertex,
+            .buffer = {
+                .type = WGPUBufferBindingType_Uniform,
+            }
+        });
+        layoutEntries.push_back({
+            .binding = 1,
+            .visibility = WGPUShaderStage_Vertex,
+            .buffer = {
+                .type = WGPUBufferBindingType_Uniform,
+            }
+        });
+        WGPUBindGroupLayoutDescriptor layoutDesc = {
+            .label = {
+                .data = "Uniforms Bind Group Layout",
+                .length = strlen("Uniform Bind Group Layout"),
+            },
+            .entryCount = 2,
+            .entries = layoutEntries.data(),
+        };
+        bindGroupLayout = wgpuDeviceCreateBindGroupLayout(device, &layoutDesc);
+
+        std::vector<WGPUBindGroupEntry> bindEntries;
+        bindEntries.push_back({
+            .binding = 0,
+            .buffer = modelUniformsBuffer,
+            .size = sizeof(ModelUniforms),
+        });
+        bindEntries.push_back({
+            .binding = 1,
+            .buffer = worldUniformsBuffer,
+            .size = sizeof(WorldUniforms),
+        });
+        WGPUBindGroupDescriptor bindGroupDesc = {
+            .label = {
+                .data = "Model Uniforms Bind Group",
+                .length = strlen("Model Uniforms Bind Group"),
+            },
+            .layout = bindGroupLayout,
+            .entryCount = 2,
+            .entries = bindEntries.data(),
+        };
+        bindGroup = wgpuDeviceCreateBindGroup(device, &bindGroupDesc);
+
     }
 
     void GraphicsManager::InitPipelines() {
@@ -334,13 +420,23 @@ namespace Citrus {
             .targets = &colorTarget,
         };
 
+        WGPUPipelineLayoutDescriptor pipelineLayoutDesc = {
+            .label = {
+                .data = "Render Pipeline Layout",
+                .length = strlen("Render Pipeline Layout"),
+                },
+            .bindGroupLayoutCount = 1,
+            .bindGroupLayouts = &bindGroupLayout
+        };
+        pipelineLayout = wgpuDeviceCreatePipelineLayout(device, &pipelineLayoutDesc);
+
         WGPURenderPipelineDescriptor pipelineDesc = {
             .nextInChain = nullptr,
             .label = {
                 .data = "Render Pipeline",
                 .length = strlen("Render Pipeline"),
                 },
-            .layout = nullptr,
+            .layout = pipelineLayout,
             .vertex = {
                 .module = shaderModule,
                 .entryPoint = {
@@ -366,7 +462,6 @@ namespace Citrus {
             },
             .fragment = &fragmentState,
         };
-
         pipeline = wgpuDeviceCreateRenderPipeline(device, &pipelineDesc);
 
         if (!pipeline) {
@@ -451,7 +546,11 @@ namespace Citrus {
         wgpuRenderPassEncoderSetVertexBuffer(renderPass, 0, positionBuffer, 0, wgpuBufferGetSize(positionBuffer));
         wgpuRenderPassEncoderSetVertexBuffer(renderPass, 1, colorBuffer, 0, wgpuBufferGetSize(colorBuffer));
         wgpuRenderPassEncoderSetIndexBuffer(renderPass, indexBuffer, WGPUIndexFormat_Uint16, 0, wgpuBufferGetSize(indexBuffer));
+
+        //uniforms
+        wgpuRenderPassEncoderSetBindGroup(renderPass, 0, bindGroup, 0, nullptr);
         wgpuRenderPassEncoderDrawIndexed(renderPass, indexData.size(), 1, 0, 0, 0);
+
         wgpuRenderPassEncoderEnd(renderPass);
 
         //encode commands

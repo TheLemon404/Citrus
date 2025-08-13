@@ -5,6 +5,7 @@
 #include "core/core.hpp"
 #include <webgpu/webgpu.h>
 
+#include "../../dependencies/glm/glm/mat4x4.hpp"
 #include "core/window.hpp"
 
 namespace Citrus {
@@ -13,7 +14,18 @@ namespace Citrus {
         WGPUBackendType backendType = WGPUBackendType_Vulkan;
     };
 
+    struct CITRUS_API ModelUniforms {
+        glm::mat4x4 transform;
+    };
+
+    struct CITRUS_API WorldUniforms {
+        glm::mat4x4 view;
+        glm::mat4x4 projection;
+    };
+
     class CITRUS_API GraphicsManager {
+        Window& window;
+
         WGPUInstance instance;
         WGPUSurface surface;
         WGPUAdapter adapter;
@@ -25,12 +37,11 @@ namespace Citrus {
         const WGPUTextureFormat surfaceFormat = WGPUTextureFormat_BGRA8Unorm;
 
         //pipelines
+        WGPUPipelineLayout pipelineLayout;
         WGPURenderPipeline pipeline;
 
         //shaders
         WGPUShaderModule shaderModule;
-
-        Window& window;
 
         // x0, y0, x1, y1, ...
         std::vector<float> positionData = {
@@ -53,12 +64,21 @@ namespace Citrus {
             0, 2, 3  // Triangle #1 connects points #0, #2 and #3
         };
 
+        //model data
         WGPUVertexAttribute positionAttribute;
         WGPUVertexAttribute colorAttribute;
         std::vector<WGPUVertexBufferLayout> vertexBufferLayout;
         WGPUBuffer positionBuffer;
         WGPUBuffer colorBuffer;
         WGPUBuffer indexBuffer;
+
+        //uniforms
+        WGPUBuffer modelUniformsBuffer;
+        WGPUBuffer worldUniformsBuffer;
+
+        //bind groups
+        WGPUBindGroupLayout bindGroupLayout;
+        WGPUBindGroup bindGroup;
 
 
     public:
@@ -78,6 +98,7 @@ namespace Citrus {
         void InitDevice();
 
         void LoadResources();
+        void InitBuffers();
         void InitBindings();
         void InitPipelines();
 

@@ -10,7 +10,7 @@ file(GLOB_RECURSE SRC CONFIGURE_DEPENDS "src/*.cpp" "src/*.hpp")
 add_library(Citrus SHARED ${SRC})
 
 target_link_libraries(Citrus PRIVATE glfw webgpu)
-target_include_directories(Citrus PRIVATE dependencies/glfw/include dependencies/webgpu/dawn/include dependencies/spdlog/include)
+target_include_directories(Citrus PRIVATE dependencies/glfw/include dependencies/webgpu/wgpu-native/include dependencies/spdlog/include)
 target_copy_webgpu_binaries(Citrus)
 
 # In your CMakeLists.txt
