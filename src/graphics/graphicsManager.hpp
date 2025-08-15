@@ -5,7 +5,7 @@
 #include "core/core.hpp"
 #include <webgpu/webgpu.h>
 
-#include "../../dependencies/glm/glm/mat4x4.hpp"
+#include <glm/mat4x4.hpp>
 #include "core/window.hpp"
 
 namespace Citrus {
