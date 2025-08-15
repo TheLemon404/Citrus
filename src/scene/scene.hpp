@@ -9,5 +9,7 @@ namespace Citrus {
         entt::registry registry;
 
         Scene();
+
+        void Update();
     };
 }

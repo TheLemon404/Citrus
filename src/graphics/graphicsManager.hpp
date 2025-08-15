@@ -22,6 +22,11 @@ namespace Citrus {
         size_t indexCount;
     };
 
+    struct BackendMeshInstance {
+        WGPUBuffer uniformBuffer;
+        WGPUBindGroup bindGroup;
+    };
+
     struct CITRUS_API GraphicalSettings {
         WGPUPowerPreference powerPreference = WGPUPowerPreference_HighPerformance;
         WGPUBackendType backendType = WGPUBackendType_Vulkan;
@@ -34,6 +39,16 @@ namespace Citrus {
     struct CITRUS_API WorldUniforms {
         glm::mat4x4 view;
         glm::mat4x4 projection;
+    };
+
+    struct CITRUS_API RenderPipeline {
+        WGPUPipelineLayout pipelineLayout = nullptr;
+        WGPURenderPipeline pipeline = nullptr;
+
+        //standardized model data
+        WGPUVertexAttribute positionAttribute;
+        WGPUVertexAttribute colorAttribute;
+        std::vector<WGPUVertexBufferLayout> vertexBufferLayout;
     };
 
     class CITRUS_API GraphicsManager {
@@ -50,28 +65,18 @@ namespace Citrus {
         const WGPUTextureFormat surfaceFormat = WGPUTextureFormat_BGRA8Unorm;
 
         //pipelines
-        WGPUPipelineLayout pipelineLayout;
-        WGPURenderPipeline pipeline;
+        RenderPipeline unlitPipeline;
 
         //shaders
         WGPUShaderModule shaderModule;
 
         //meshes
         std::unordered_map<std::shared_ptr<Mesh>, BackendMesh> meshCache;
+        std::unordered_map<entt::entity, BackendMeshInstance> meshInstancesCache;
 
-        //standardized model data
-        WGPUVertexAttribute positionAttribute;
-        WGPUVertexAttribute colorAttribute;
-        std::vector<WGPUVertexBufferLayout> vertexBufferLayout;
-
-        //uniforms
-        WGPUBuffer modelUniformsBuffer;
+        //global uniform data
         WGPUBuffer worldUniformsBuffer;
-
-        //bind groups
         WGPUBindGroupLayout bindGroupLayout;
-        WGPUBindGroup bindGroup;
-
 
     public:
         GraphicsManager(Window& window) : window(window) {};
@@ -80,6 +85,9 @@ namespace Citrus {
         void OnFramebufferResized(unsigned int width, unsigned int height);
 
     private:
+        //type creation
+        RenderPipeline CreateRenderPipeline(WGPUShaderModule& shader_module, WGPUBindGroupLayout& bindGroupLayout);
+
         //WebGPU async callbacks
         static void RequestAdapterCallback(WGPURequestAdapterStatus status, WGPUAdapter adapter, WGPUStringView message, void* userdata1, void* userdata2);
         static void RequestDeviceCallback(WGPURequestDeviceStatus status, WGPUDevice device, WGPUStringView message, void* userdata1, void* userdata2);
@@ -94,7 +102,8 @@ namespace Citrus {
         void InitBindings();
         void InitPipelines();
 
-        void UploadMeshIfNeeded(std::shared_ptr<Mesh> mesh);
+        void UpdateMeshIfNeeded(std::shared_ptr<Mesh> mesh);
+        void UpdateUniformsIfNeeded(entt::entity entity);
 
         std::pair<WGPUSurfaceTexture, WGPUTextureView> GetNextSurfaceViewData();
 

@@ -6,6 +6,7 @@
 
 #include "../../dependencies/glm/glm/ext/matrix_transform.hpp"
 #include "core/files.hpp"
+#include "scene/components/generic/transformComponent.hpp"
 #include "scene/components/graphics/meshComponent.hpp"
 
 #ifdef _WIN32
@@ -29,6 +30,121 @@ namespace Citrus {
             .presentMode = WGPUPresentMode_Fifo,
         };
         wgpuSurfaceConfigure(surface, &surfaceConfiguration);
+    }
+
+    RenderPipeline GraphicsManager::CreateRenderPipeline(WGPUShaderModule& shaderModule, WGPUBindGroupLayout& bindGroupLayout) {
+        RenderPipeline result = {};
+
+        // Pipelines
+        WGPUBlendState blendState = {
+            .color = {
+                .operation = WGPUBlendOperation_Add,
+                .srcFactor = WGPUBlendFactor_SrcAlpha,
+                .dstFactor = WGPUBlendFactor_OneMinusSrcAlpha,
+            },
+            .alpha = {
+                .operation = WGPUBlendOperation_Add,
+                .srcFactor = WGPUBlendFactor_Zero,
+                .dstFactor = WGPUBlendFactor_One,
+            }
+        };
+
+        WGPUColorTargetState colorTarget = {
+            .format = surfaceFormat,
+            .blend = &blendState,
+            .writeMask = WGPUColorWriteMask_All
+        };
+
+        WGPUFragmentState fragmentState = {
+            .module = shaderModule,
+            .entryPoint = {
+                .data = "fs_main",
+                .length = strlen("fs_main"),
+                },
+            .constantCount = 0,
+            .constants = nullptr,
+            .targetCount = 1,
+            .targets = &colorTarget,
+        };
+
+        WGPUPipelineLayoutDescriptor pipelineLayoutDesc = {
+            .label = {
+                .data = "Render Pipeline Layout",
+                .length = strlen("Render Pipeline Layout"),
+                },
+            .bindGroupLayoutCount = 1,
+            .bindGroupLayouts = &bindGroupLayout
+        };
+        result.pipelineLayout = wgpuDeviceCreatePipelineLayout(device, &pipelineLayoutDesc);
+
+        //VAO equivilent
+        result.positionAttribute = {
+            .format = WGPUVertexFormat_Float32x3,
+            .offset = 0,
+            .shaderLocation = 0,
+        };
+        result.colorAttribute = {
+            .format = WGPUVertexFormat_Float32x3,
+            .offset = 0,
+            .shaderLocation = 1
+        };
+        result.vertexBufferLayout.push_back({
+            .stepMode = WGPUVertexStepMode_Vertex,
+            .arrayStride = 3 * sizeof(float),
+            .attributeCount = 1,
+            .attributes = &result.positionAttribute,
+        });
+        result.vertexBufferLayout.push_back({
+            .stepMode = WGPUVertexStepMode_Vertex,
+            .arrayStride = 3 * sizeof(float),
+            .attributeCount = 1,
+            .attributes = &result.colorAttribute
+        });
+
+        WGPURenderPipelineDescriptor pipelineDesc = {
+            .nextInChain = nullptr,
+            .label = {
+                .data = "Render Pipeline",
+                .length = strlen("Render Pipeline"),
+                },
+            .layout = result.pipelineLayout,
+            .vertex = {
+                .module = shaderModule,
+                .entryPoint = {
+                    .data = "vs_main",
+                    .length = strlen("vs_main"),
+                },
+                .constantCount = 0,
+                .constants = nullptr,
+                //-- IMPORTANT -- this currently works because all meshes have the same layout. If this changes in the future,
+                // this needs to be changed to use multiple pipelines.
+                .bufferCount = static_cast<uint32_t>(result.vertexBufferLayout.size()),
+                .buffers = result.vertexBufferLayout.data(),
+            },
+            .primitive = {
+                .topology = WGPUPrimitiveTopology_TriangleList,
+                .stripIndexFormat = WGPUIndexFormat_Undefined,
+                .frontFace = WGPUFrontFace_CCW,
+                .cullMode = WGPUCullMode_None,
+            },
+            .depthStencil = nullptr,
+            .multisample = {
+                .count = 1,
+                .mask = ~0u,
+                .alphaToCoverageEnabled = false
+            },
+            .fragment = &fragmentState,
+        };
+        result.pipeline = wgpuDeviceCreateRenderPipeline(device, &pipelineDesc);
+
+        if (!result.pipeline) {
+            CITRUS_CORE_ERROR("Failed to create render pipeline!");
+            return {};
+        }
+
+        CITRUS_CORE_INFO("Render pipeline created successfully");
+
+        return result;
     }
 
     void GraphicsManager::RequestAdapterCallback(WGPURequestAdapterStatus status, WGPUAdapter adapter, WGPUStringView message, void* userdata1, void* userdata2) {
@@ -210,21 +326,6 @@ namespace Citrus {
 
     void GraphicsManager::InitBindings() {
         // set buffers
-        WGPUBufferDescriptor modelUniformsBufferDesc = {
-            .label = {
-                .data = "Model Uniforms",
-                .length = strlen("Model Uniforms"),
-            },
-            .usage = WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst,
-            .size = sizeof(ModelUniforms),
-            .mappedAtCreation = false,
-        };
-        modelUniformsBuffer = wgpuDeviceCreateBuffer(device, &modelUniformsBufferDesc);
-        ModelUniforms modelUniforms = {
-            .transform = glm::identity<glm::mat4x4>()
-        };
-        wgpuQueueWriteBuffer(queue, modelUniformsBuffer, 0, &modelUniforms, sizeof(modelUniforms));
-
         WGPUBufferDescriptor worldUniformsBufferDesc = {
             .label = {
                 .data = "World Uniforms",
@@ -269,33 +370,11 @@ namespace Citrus {
             .entries = layoutEntries.data(),
         };
         bindGroupLayout = wgpuDeviceCreateBindGroupLayout(device, &layoutDesc);
-
-        std::vector<WGPUBindGroupEntry> bindEntries;
-        bindEntries.push_back({
-            .binding = 0,
-            .buffer = modelUniformsBuffer,
-            .size = sizeof(ModelUniforms),
-        });
-        bindEntries.push_back({
-            .binding = 1,
-            .buffer = worldUniformsBuffer,
-            .size = sizeof(WorldUniforms),
-        });
-        WGPUBindGroupDescriptor bindGroupDesc = {
-            .label = {
-                .data = "Model Uniforms Bind Group",
-                .length = strlen("Model Uniforms Bind Group"),
-            },
-            .layout = bindGroupLayout,
-            .entryCount = 2,
-            .entries = bindEntries.data(),
-        };
-        bindGroup = wgpuDeviceCreateBindGroup(device, &bindGroupDesc);
     }
 
     void GraphicsManager::InitPipelines() {
         //shaders
-        std::string shaderCodeText = FileSystem::ReadFileString("resources/shaders/lit.wgsl");
+        std::string shaderCodeText = FileSystem::ReadFileString("resources/shaders/unlit.wgsl");
 
         if (shaderCodeText.empty()) {
             CITRUS_CORE_ERROR("Shader code is empty! Cannot create shader module.");
@@ -332,117 +411,10 @@ namespace Citrus {
 
         CITRUS_CORE_INFO("Shader module created successfully");
 
-        // Pipelines
-        WGPUBlendState blendState = {
-            .color = {
-                .operation = WGPUBlendOperation_Add,
-                .srcFactor = WGPUBlendFactor_SrcAlpha,
-                .dstFactor = WGPUBlendFactor_OneMinusSrcAlpha,
-            },
-            .alpha = {
-                .operation = WGPUBlendOperation_Add,
-                .srcFactor = WGPUBlendFactor_Zero,
-                .dstFactor = WGPUBlendFactor_One,
-            }
-        };
-
-        WGPUColorTargetState colorTarget = {
-            .format = surfaceFormat,
-            .blend = &blendState,
-            .writeMask = WGPUColorWriteMask_All
-        };
-
-        WGPUFragmentState fragmentState = {
-            .module = shaderModule,
-            .entryPoint = {
-                .data = "fs_main",
-                .length = strlen("fs_main"),
-                },
-            .constantCount = 0,
-            .constants = nullptr,
-            .targetCount = 1,
-            .targets = &colorTarget,
-        };
-
-        WGPUPipelineLayoutDescriptor pipelineLayoutDesc = {
-            .label = {
-                .data = "Render Pipeline Layout",
-                .length = strlen("Render Pipeline Layout"),
-                },
-            .bindGroupLayoutCount = 1,
-            .bindGroupLayouts = &bindGroupLayout
-        };
-        pipelineLayout = wgpuDeviceCreatePipelineLayout(device, &pipelineLayoutDesc);
-
-        //VAO equivilent
-        positionAttribute = {
-            .format = WGPUVertexFormat_Float32x3,
-            .offset = 0,
-            .shaderLocation = 0,
-        };
-        colorAttribute = {
-            .format = WGPUVertexFormat_Float32x3,
-            .offset = 0,
-            .shaderLocation = 1
-        };
-        vertexBufferLayout.push_back({
-            .stepMode = WGPUVertexStepMode_Vertex,
-            .arrayStride = 3 * sizeof(float),
-            .attributeCount = 1,
-            .attributes = &positionAttribute,
-        });
-        vertexBufferLayout.push_back({
-            .stepMode = WGPUVertexStepMode_Vertex,
-            .arrayStride = 3 * sizeof(float),
-            .attributeCount = 1,
-            .attributes = &colorAttribute
-        });
-
-        WGPURenderPipelineDescriptor pipelineDesc = {
-            .nextInChain = nullptr,
-            .label = {
-                .data = "Render Pipeline",
-                .length = strlen("Render Pipeline"),
-                },
-            .layout = pipelineLayout,
-            .vertex = {
-                .module = shaderModule,
-                .entryPoint = {
-                    .data = "vs_main",
-                    .length = strlen("vs_main"),
-                },
-                .constantCount = 0,
-                .constants = nullptr,
-                //-- IMPORTANT -- this currently works because all meshes have the same layout. If this changes in the future,
-                // this needs to be changed to use multiple pipelines.
-                .bufferCount = static_cast<uint32_t>(vertexBufferLayout.size()),
-                .buffers = vertexBufferLayout.data(),
-            },
-            .primitive = {
-                .topology = WGPUPrimitiveTopology_TriangleList,
-                .stripIndexFormat = WGPUIndexFormat_Undefined,
-                .frontFace = WGPUFrontFace_CCW,
-                .cullMode = WGPUCullMode_None,
-            },
-            .depthStencil = nullptr,
-            .multisample = {
-                .count = 1,
-                .mask = ~0u,
-                .alphaToCoverageEnabled = false
-            },
-            .fragment = &fragmentState,
-        };
-        pipeline = wgpuDeviceCreateRenderPipeline(device, &pipelineDesc);
-
-        if (!pipeline) {
-            CITRUS_CORE_ERROR("Failed to create render pipeline!");
-            return;
-        }
-
-        CITRUS_CORE_INFO("Render pipeline created successfully");
+        unlitPipeline = CreateRenderPipeline(shaderModule, bindGroupLayout);
     }
 
-    void GraphicsManager::UploadMeshIfNeeded(std::shared_ptr<Mesh> mesh) {
+    void GraphicsManager::UpdateMeshIfNeeded(std::shared_ptr<Mesh> mesh) {
         if (meshCache.contains(mesh)) return;
 
         std::vector<float> positionData = mesh->ExtractPositionData();
@@ -488,6 +460,45 @@ namespace Citrus {
         wgpuQueueWriteBuffer(queue, meshCache[mesh].indexBuffer, 0, mesh->indices.data(), indexBufferDesc.size);
     }
 
+    void GraphicsManager::UpdateUniformsIfNeeded(entt::entity entity) {
+        // Get or create render data
+        BackendMeshInstance& renderData = meshInstancesCache[entity];
+        if (!renderData.uniformBuffer) {
+            // Create buffer
+            WGPUBufferDescriptor bufferDesc = {
+                .label = { .data = "Entity Model Uniform Buffer", .length = strlen("Entity Model Uniform Buffer") },
+                .usage = WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst,
+                .size = sizeof(ModelUniforms),
+                .mappedAtCreation = false,
+            };
+            renderData.uniformBuffer = wgpuDeviceCreateBuffer(device, &bufferDesc);
+
+            // Create bind group
+            WGPUBindGroupEntry bindEntries[2] = {
+                {
+                    .binding = 0,
+                    .buffer = renderData.uniformBuffer,
+                    .offset = 0,
+                    .size = sizeof(ModelUniforms),
+                },
+                {
+                    .binding = 1,
+                    .buffer = worldUniformsBuffer,
+                    .offset = 0,
+                    .size = sizeof(WorldUniforms),
+                }
+            };
+
+            WGPUBindGroupDescriptor bindGroupDesc = {
+                .label = { .data = "Entity Bind Group", .length = strlen("Entity Bind Group") },
+                .layout = bindGroupLayout,
+                .entryCount = 2,
+                .entries = bindEntries,
+            };
+            renderData.bindGroup = wgpuDeviceCreateBindGroup(device, &bindGroupDesc);
+        }
+    }
+
     std::pair<WGPUSurfaceTexture, WGPUTextureView> GraphicsManager::GetNextSurfaceViewData() {
         WGPUSurfaceTexture surfaceTexture;
         wgpuSurfaceGetCurrentTexture(surface, &surfaceTexture);
@@ -517,7 +528,7 @@ namespace Citrus {
 
     void GraphicsManager::Draw(Scene& scene) {
         //Check if pipeline is valid before drawing
-        if (!pipeline) {
+        if (!unlitPipeline.pipeline) {
             CITRUS_CORE_ERROR("Pipeline is invalid, skipping draw");
             return;
         }
@@ -558,21 +569,29 @@ namespace Citrus {
 
         //begin render pass
         WGPURenderPassEncoder renderPass = wgpuCommandEncoderBeginRenderPass(commandEncoder, &renderPassDescriptor);
-        wgpuRenderPassEncoderSetPipeline(renderPass, pipeline);
+        wgpuRenderPassEncoderSetPipeline(renderPass, unlitPipeline.pipeline);
 
         auto view = scene.registry.view<MeshComponent>();
         for (auto entity : view) {
             MeshComponent& meshComponent = view.get<MeshComponent>(entity);
-            UploadMeshIfNeeded(meshComponent.mesh);
+            UpdateMeshIfNeeded(meshComponent.mesh);
+            UpdateUniformsIfNeeded(entity);
+
+            const BackendMeshInstance& meshInstance = meshInstancesCache[entity];
 
             const BackendMesh& backendMesh = meshCache[meshComponent.mesh];
+            auto& transformComponent = scene.registry.get<TransformComponent>(entity);
+            ModelUniforms modelUniforms = {
+                .transform = transformComponent.transform // or build matrix from position/rotation/scale
+            };
+            wgpuQueueWriteBuffer(queue, meshInstance.uniformBuffer, 0, &modelUniforms, sizeof(modelUniforms));
 
             wgpuRenderPassEncoderSetVertexBuffer(renderPass, 0, backendMesh.positionBuffer, 0, wgpuBufferGetSize(backendMesh.positionBuffer));
             wgpuRenderPassEncoderSetVertexBuffer(renderPass, 1, backendMesh.colorBuffer, 0, wgpuBufferGetSize(backendMesh.colorBuffer));
             wgpuRenderPassEncoderSetIndexBuffer(renderPass, backendMesh.indexBuffer, WGPUIndexFormat_Uint16, 0, wgpuBufferGetSize(backendMesh.indexBuffer));
 
             //uniforms
-            wgpuRenderPassEncoderSetBindGroup(renderPass, 0, bindGroup, 0, 0);
+            wgpuRenderPassEncoderSetBindGroup(renderPass, 0, meshInstance.bindGroup, 0, 0);
             wgpuRenderPassEncoderDrawIndexed(renderPass, meshComponent.mesh->indices.size(), 1, 0, 0, 0);
         }
 
@@ -610,9 +629,16 @@ namespace Citrus {
             wgpuBufferRelease(backendMesh.colorBuffer);
             wgpuBufferRelease(backendMesh.indexBuffer);
         }
+        meshCache.clear();
+
+        for (auto& [entity, data] : meshInstancesCache) {
+            wgpuBufferRelease(data.uniformBuffer);
+            wgpuBindGroupRelease(data.bindGroup);
+        }
+        meshInstancesCache.clear();
 
         wgpuShaderModuleRelease(shaderModule);
-        wgpuRenderPipelineRelease(pipeline);
+        wgpuRenderPipelineRelease(unlitPipeline.pipeline);
         wgpuAdapterRelease(adapter);
         wgpuDeviceRelease(device);
         wgpuQueueRelease(queue);
