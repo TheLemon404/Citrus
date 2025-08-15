@@ -3,12 +3,14 @@
 #include "core.hpp"
 #include "window.hpp"
 #include "graphics/graphicsManager.hpp"
+#include "scene/sceneManager.hpp"
 
 namespace Citrus {
     class CITRUS_API Application {
     public:
-        Window m_window;
-        GraphicsManager m_graphicsManager;
+        Window window;
+        GraphicsManager graphicsManager;
+        SceneManager sceneManager;
 
         Application();
 

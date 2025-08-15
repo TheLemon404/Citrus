@@ -7,14 +7,14 @@
 
 namespace Citrus {
     class CITRUS_API Window {
-        unsigned int s_width, s_height;
-        std::string m_title;
-        GLFWwindow* s_glfwWindow;
+        unsigned int width, height;
+        std::string title;
+        GLFWwindow* glfwWindow;
 
         static void FramebufferSizeCallback(GLFWwindow* window, int width, int height);
 
     public:
-        Window(unsigned int width, unsigned int height, std::string title) : s_width(width), s_height(height), m_title(title) {};
+        Window(unsigned int width, unsigned int height, std::string title) : width(width), height(height), title(title) {};
 
         void Open();
         bool ShouldClose();
@@ -23,8 +23,8 @@ namespace Citrus {
 
         void OnResized(unsigned int width, unsigned int height);
 
-        GLFWwindow* GetGLFWWindow() { return s_glfwWindow; }
-        unsigned int GetWidth() { return s_width; }
-        unsigned int GetHeight() { return s_height; }
+        GLFWwindow* GetGLFWWindow() { return glfwWindow; }
+        unsigned int GetWidth() { return width; }
+        unsigned int GetHeight() { return height; }
     };
 }

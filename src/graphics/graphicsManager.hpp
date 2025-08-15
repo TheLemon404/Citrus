@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <vector>
 
 #include "core/core.hpp"
@@ -7,8 +8,20 @@
 
 #include <glm/mat4x4.hpp>
 #include "core/window.hpp"
+#include "scene/scene.hpp"
+#include "types/mesh.hpp"
 
 namespace Citrus {
+    struct BackendMesh {
+        WGPUBuffer positionBuffer;
+        WGPUBuffer normalBuffer;
+        WGPUBuffer colorBuffer;
+        WGPUBuffer uvBuffer;
+        WGPUBuffer indexBuffer;
+
+        size_t indexCount;
+    };
+
     struct CITRUS_API GraphicalSettings {
         WGPUPowerPreference powerPreference = WGPUPowerPreference_HighPerformance;
         WGPUBackendType backendType = WGPUBackendType_Vulkan;
@@ -43,34 +56,13 @@ namespace Citrus {
         //shaders
         WGPUShaderModule shaderModule;
 
-        // x0, y0, x1, y1, ...
-        std::vector<float> positionData = {
-            -0.5, -0.5, 0.0,
-            +0.5, -0.5, 0.0,
-            +0.5, +0.5, 0.0,
-            -0.5, +0.5, 0.0,
-        };
+        //meshes
+        std::unordered_map<std::shared_ptr<Mesh>, BackendMesh> meshCache;
 
-        // r0,  g0,  b0, r1,  g1,  b1, ...
-        std::vector<float> colorData = {
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0,
-            1.0, 1.0, 0.0,
-        };
-
-        std::vector<uint16_t> indexData = {
-            0, 1, 2, // Triangle #0 connects points #0, #1 and #2
-            0, 2, 3  // Triangle #1 connects points #0, #2 and #3
-        };
-
-        //model data
+        //standardized model data
         WGPUVertexAttribute positionAttribute;
         WGPUVertexAttribute colorAttribute;
         std::vector<WGPUVertexBufferLayout> vertexBufferLayout;
-        WGPUBuffer positionBuffer;
-        WGPUBuffer colorBuffer;
-        WGPUBuffer indexBuffer;
 
         //uniforms
         WGPUBuffer modelUniformsBuffer;
@@ -102,11 +94,13 @@ namespace Citrus {
         void InitBindings();
         void InitPipelines();
 
+        void UploadMeshIfNeeded(std::shared_ptr<Mesh> mesh);
+
         std::pair<WGPUSurfaceTexture, WGPUTextureView> GetNextSurfaceViewData();
 
     public:
         void Init();
-        void Draw();
+        void Draw(Scene& scene);
         void CleanUp();
     };
 }

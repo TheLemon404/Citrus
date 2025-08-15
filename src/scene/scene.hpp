@@ -5,9 +5,9 @@
 
 namespace Citrus {
     class CITRUS_API Scene {
+    public:
         entt::registry registry;
 
-    public:
         Scene();
     };
 }

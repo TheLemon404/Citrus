@@ -12,8 +12,8 @@ namespace Citrus {
         auto that = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
 
         if (that != nullptr) {
-            that->m_graphicsManager.OnFramebufferResized(width, height);
-            that->m_window.OnResized(width, height);
+            that->graphicsManager.OnFramebufferResized(width, height);
+            that->window.OnResized(width, height);
         }
     }
 
@@ -23,24 +23,24 @@ namespace Citrus {
             return;
         }
 
-        s_glfwWindow = glfwCreateWindow(s_width, s_height, m_title.c_str(), NULL, NULL);
+        glfwWindow = glfwCreateWindow(width, height, title.c_str(), NULL, NULL);
 
-        glfwSetFramebufferSizeCallback(s_glfwWindow, Window::FramebufferSizeCallback);
-        if (!s_glfwWindow) {
+        glfwSetFramebufferSizeCallback(glfwWindow, Window::FramebufferSizeCallback);
+        if (!glfwWindow) {
             CITRUS_CORE_ERROR("failed to create GLFW window");
             glfwTerminate();
             return;
         }
 
-        glfwMakeContextCurrent(s_glfwWindow);
+        glfwMakeContextCurrent(glfwWindow);
     }
 
     bool Window::ShouldClose() {
-        return glfwWindowShouldClose(s_glfwWindow);
+        return glfwWindowShouldClose(glfwWindow);
     }
 
     void Window::SwapBuffersAndPoll() {
-        glfwSwapBuffers(s_glfwWindow);
+        glfwSwapBuffers(glfwWindow);
         glfwPollEvents();
     }
 
@@ -49,7 +49,7 @@ namespace Citrus {
     }
 
     void Window::OnResized(unsigned int width, unsigned int height) {
-        s_width = width;
-        s_height = height;
+        width = width;
+        height = height;
     }
 }

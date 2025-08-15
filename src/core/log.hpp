@@ -5,14 +5,14 @@
 
 namespace Citrus {
     class CITRUS_API Log {
-        inline static std::shared_ptr<spdlog::logger> s_coreLogger;
-        inline static std::shared_ptr<spdlog::logger> s_clientLogger;
+        inline static std::shared_ptr<spdlog::logger> coreLogger;
+        inline static std::shared_ptr<spdlog::logger> clientLogger;
 
     public:
         static void Init();
 
-        inline static std::shared_ptr<spdlog::logger>& GetCoreLogger() { return s_coreLogger; };
-        inline static std::shared_ptr<spdlog::logger>& GetClientLogger() { return s_clientLogger; };
+        inline static std::shared_ptr<spdlog::logger>& GetCoreLogger() { return coreLogger; };
+        inline static std::shared_ptr<spdlog::logger>& GetClientLogger() { return clientLogger; };
     };
 }
 

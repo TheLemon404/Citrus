@@ -6,6 +6,7 @@
 
 #include "../../dependencies/glm/glm/ext/matrix_transform.hpp"
 #include "core/files.hpp"
+#include "scene/components/graphics/meshComponent.hpp"
 
 #ifdef _WIN32
 #define GLFW_EXPOSE_NATIVE_WIN32
@@ -204,69 +205,11 @@ namespace Citrus {
     }
 
     void GraphicsManager::InitBuffers() {
-        WGPUBufferDescriptor bufferDesc = {
-            .label = {
-                .data = "Position Buffer",
-                .length = strlen("Vertex Buffer"),
-            },
-            .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex,
-            .size = positionData.size() * sizeof(positionData[0]),
-            .mappedAtCreation = false,
-        };
-        positionBuffer = wgpuDeviceCreateBuffer(device, &bufferDesc);
-        wgpuQueueWriteBuffer(queue, positionBuffer, 0, positionData.data(), bufferDesc.size);
 
-        WGPUBufferDescriptor colorBufferDesc = {
-            .label = {
-                .data = "Color Buffer",
-                .length = strlen("Color Buffer"),
-            },
-            .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex,
-            .size = colorData.size() * sizeof(colorData[0]),
-            .mappedAtCreation = false,
-        };
-        colorBuffer = wgpuDeviceCreateBuffer(device, &colorBufferDesc);
-        wgpuQueueWriteBuffer(queue, colorBuffer, 0, colorData.data(), colorBufferDesc.size);
-
-        WGPUBufferDescriptor indexBufferDesc = {
-            .label = {
-                .data = "Index Buffer",
-                .length = strlen("Index Buffer"),
-            },
-            .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Index,
-            .size = indexData.size() * sizeof(indexData[0]),
-            .mappedAtCreation = false,
-        };
-        indexBuffer = wgpuDeviceCreateBuffer(device, &indexBufferDesc);
-        wgpuQueueWriteBuffer(queue, indexBuffer, 0, indexData.data(), indexBufferDesc.size);
-
-        //VAO equivilent
-        positionAttribute = {
-            .format = WGPUVertexFormat_Float32x3,
-            .offset = 0,
-            .shaderLocation = 0,
-        };
-        colorAttribute = {
-            .format = WGPUVertexFormat_Float32x3,
-            .offset = 0,
-            .shaderLocation = 1
-        };
-        vertexBufferLayout.push_back({
-            .stepMode = WGPUVertexStepMode_Vertex,
-            .arrayStride = 3 * sizeof(float),
-            .attributeCount = 1,
-            .attributes = &positionAttribute,
-        });
-        vertexBufferLayout.push_back({
-            .stepMode = WGPUVertexStepMode_Vertex,
-            .arrayStride = 3 * sizeof(float),
-            .attributeCount = 1,
-            .attributes = &colorAttribute
-        });
     }
 
     void GraphicsManager::InitBindings() {
-        // set buffersj
+        // set buffers
         WGPUBufferDescriptor modelUniformsBufferDesc = {
             .label = {
                 .data = "Model Uniforms",
@@ -431,6 +374,30 @@ namespace Citrus {
         };
         pipelineLayout = wgpuDeviceCreatePipelineLayout(device, &pipelineLayoutDesc);
 
+        //VAO equivilent
+        positionAttribute = {
+            .format = WGPUVertexFormat_Float32x3,
+            .offset = 0,
+            .shaderLocation = 0,
+        };
+        colorAttribute = {
+            .format = WGPUVertexFormat_Float32x3,
+            .offset = 0,
+            .shaderLocation = 1
+        };
+        vertexBufferLayout.push_back({
+            .stepMode = WGPUVertexStepMode_Vertex,
+            .arrayStride = 3 * sizeof(float),
+            .attributeCount = 1,
+            .attributes = &positionAttribute,
+        });
+        vertexBufferLayout.push_back({
+            .stepMode = WGPUVertexStepMode_Vertex,
+            .arrayStride = 3 * sizeof(float),
+            .attributeCount = 1,
+            .attributes = &colorAttribute
+        });
+
         WGPURenderPipelineDescriptor pipelineDesc = {
             .nextInChain = nullptr,
             .label = {
@@ -446,6 +413,8 @@ namespace Citrus {
                 },
                 .constantCount = 0,
                 .constants = nullptr,
+                //-- IMPORTANT -- this currently works because all meshes have the same layout. If this changes in the future,
+                // this needs to be changed to use multiple pipelines.
                 .bufferCount = static_cast<uint32_t>(vertexBufferLayout.size()),
                 .buffers = vertexBufferLayout.data(),
             },
@@ -471,6 +440,52 @@ namespace Citrus {
         }
 
         CITRUS_CORE_INFO("Render pipeline created successfully");
+    }
+
+    void GraphicsManager::UploadMeshIfNeeded(std::shared_ptr<Mesh> mesh) {
+        if (meshCache.contains(mesh)) return;
+
+        std::vector<float> positionData = mesh->ExtractPositionData();
+        std::vector<float> colorData = mesh->ExtractColorData();
+
+        WGPUBufferDescriptor bufferDesc = {
+            .label = {
+                .data = "Position Buffer",
+                .length = strlen("Vertex Buffer"),
+            },
+            .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex,
+            .size = positionData.size() * sizeof(positionData[0]),
+            .mappedAtCreation = false,
+        };
+
+        meshCache.insert({mesh, BackendMesh()});
+
+        meshCache[mesh].positionBuffer = wgpuDeviceCreateBuffer(device, &bufferDesc);
+        wgpuQueueWriteBuffer(queue, meshCache[mesh].positionBuffer, 0, positionData.data(), bufferDesc.size);
+
+        WGPUBufferDescriptor colorBufferDesc = {
+            .label = {
+                .data = "Color Buffer",
+                .length = strlen("Color Buffer"),
+            },
+            .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex,
+            .size = colorData.size() * sizeof(colorData[0]),
+            .mappedAtCreation = false,
+        };
+        meshCache[mesh].colorBuffer = wgpuDeviceCreateBuffer(device, &colorBufferDesc);
+        wgpuQueueWriteBuffer(queue, meshCache[mesh].colorBuffer, 0, colorData.data(), colorBufferDesc.size);
+
+        WGPUBufferDescriptor indexBufferDesc = {
+            .label = {
+                .data = "Index Buffer",
+                .length = strlen("Index Buffer"),
+            },
+            .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Index,
+            .size = mesh->indices.size() * sizeof(mesh->indices[0]),
+            .mappedAtCreation = false,
+        };
+        meshCache[mesh].indexBuffer = wgpuDeviceCreateBuffer(device, &indexBufferDesc);
+        wgpuQueueWriteBuffer(queue, meshCache[mesh].indexBuffer, 0, mesh->indices.data(), indexBufferDesc.size);
     }
 
     std::pair<WGPUSurfaceTexture, WGPUTextureView> GraphicsManager::GetNextSurfaceViewData() {
@@ -500,7 +515,7 @@ namespace Citrus {
         return std::make_pair(surfaceTexture, targetView);
     }
 
-    void GraphicsManager::Draw() {
+    void GraphicsManager::Draw(Scene& scene) {
         //Check if pipeline is valid before drawing
         if (!pipeline) {
             CITRUS_CORE_ERROR("Pipeline is invalid, skipping draw");
@@ -544,13 +559,22 @@ namespace Citrus {
         //begin render pass
         WGPURenderPassEncoder renderPass = wgpuCommandEncoderBeginRenderPass(commandEncoder, &renderPassDescriptor);
         wgpuRenderPassEncoderSetPipeline(renderPass, pipeline);
-        wgpuRenderPassEncoderSetVertexBuffer(renderPass, 0, positionBuffer, 0, wgpuBufferGetSize(positionBuffer));
-        wgpuRenderPassEncoderSetVertexBuffer(renderPass, 1, colorBuffer, 0, wgpuBufferGetSize(colorBuffer));
-        wgpuRenderPassEncoderSetIndexBuffer(renderPass, indexBuffer, WGPUIndexFormat_Uint16, 0, wgpuBufferGetSize(indexBuffer));
 
-        //uniforms
-        wgpuRenderPassEncoderSetBindGroup(renderPass, 0, bindGroup, 0, 0);
-        wgpuRenderPassEncoderDrawIndexed(renderPass, indexData.size(), 1, 0, 0, 0);
+        auto view = scene.registry.view<MeshComponent>();
+        for (auto entity : view) {
+            MeshComponent& meshComponent = view.get<MeshComponent>(entity);
+            UploadMeshIfNeeded(meshComponent.mesh);
+
+            const BackendMesh& backendMesh = meshCache[meshComponent.mesh];
+
+            wgpuRenderPassEncoderSetVertexBuffer(renderPass, 0, backendMesh.positionBuffer, 0, wgpuBufferGetSize(backendMesh.positionBuffer));
+            wgpuRenderPassEncoderSetVertexBuffer(renderPass, 1, backendMesh.colorBuffer, 0, wgpuBufferGetSize(backendMesh.colorBuffer));
+            wgpuRenderPassEncoderSetIndexBuffer(renderPass, backendMesh.indexBuffer, WGPUIndexFormat_Uint16, 0, wgpuBufferGetSize(backendMesh.indexBuffer));
+
+            //uniforms
+            wgpuRenderPassEncoderSetBindGroup(renderPass, 0, bindGroup, 0, 0);
+            wgpuRenderPassEncoderDrawIndexed(renderPass, meshComponent.mesh->indices.size(), 1, 0, 0, 0);
+        }
 
         wgpuRenderPassEncoderEnd(renderPass);
 
@@ -581,9 +605,11 @@ namespace Citrus {
     void GraphicsManager::CleanUp() {
         wgpuSurfaceUnconfigure(surface);
 
-        wgpuBufferRelease(positionBuffer);
-        wgpuBufferRelease(colorBuffer);
-        wgpuBufferRelease(indexBuffer);
+        for (auto& [mesh, backendMesh] : meshCache) {
+            wgpuBufferRelease(backendMesh.positionBuffer);
+            wgpuBufferRelease(backendMesh.colorBuffer);
+            wgpuBufferRelease(backendMesh.indexBuffer);
+        }
 
         wgpuShaderModuleRelease(shaderModule);
         wgpuRenderPipelineRelease(pipeline);

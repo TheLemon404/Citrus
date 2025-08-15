@@ -1,23 +1,34 @@
 #include "application.hpp"
 
 #include "log.hpp"
+#include "scene/components/graphics/meshComponent.hpp"
 
 namespace Citrus {
-    Application::Application() : m_window(1024, 768, "Citrus"), m_graphicsManager(m_window) {
+    Application::Application() :
+    window(1024, 768, "Citrus"),
+    graphicsManager(window),
+    sceneManager() {
     }
 
     void Application::Run() {
         Log::Init();
-        m_window.Open();
-        glfwSetWindowUserPointer(m_window.GetGLFWWindow(), this);
-        m_graphicsManager.Init();
+        window.Open();
+        glfwSetWindowUserPointer(window.GetGLFWWindow(), this);
 
-        while (!m_window.ShouldClose()) {
-            m_graphicsManager.Draw();
-            m_window.SwapBuffersAndPoll();
+        //debug
+        entt::entity e = sceneManager.GetCurrentScene().registry.create();
+        sceneManager.GetCurrentScene().registry.emplace<MeshComponent>(e);
+        MeshComponent& m = sceneManager.GetCurrentScene().registry.get<MeshComponent>(e);
+        m.mesh = std::make_shared<Mesh>();
+
+        graphicsManager.Init();
+
+        while (!window.ShouldClose()) {
+            graphicsManager.Draw(sceneManager.GetCurrentScene());
+            window.SwapBuffersAndPoll();
         }
 
-        m_graphicsManager.CleanUp();
-        m_window.Close();
+        graphicsManager.CleanUp();
+        window.Close();
     }
 }
