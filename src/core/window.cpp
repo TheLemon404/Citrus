@@ -13,7 +13,7 @@ namespace Citrus {
 
         if (that != nullptr) {
             that->graphicsManager.OnFramebufferResized(width, height);
-            that->window.OnResized(width, height);
+            that->window->OnResized(width, height);
         }
     }
 

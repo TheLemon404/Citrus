@@ -6,14 +6,23 @@
 #include "scene/sceneManager.hpp"
 
 namespace Citrus {
+    struct CITRUS_API ApplicationRenderResult {
+
+    };
+
     class CITRUS_API Application {
     public:
-        Window window;
+        Window* window = nullptr;
+
         GraphicsManager graphicsManager;
         SceneManager sceneManager;
 
-        Application();
+        Application(Window* window);
 
-        void Run();
+        void Init();
+        void Update();
+        ApplicationRenderResult Render();
+        void Shutdown();
+        bool ShouldClose();
     };
 }

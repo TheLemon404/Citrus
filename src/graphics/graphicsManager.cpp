@@ -205,13 +205,13 @@ namespace Citrus {
         CITRUS_CORE_FATAL(" message: {}", std::string(message.data, message.length));
     }
 
-    void GraphicsManager::Init() {
+    void GraphicsManager::Init(Window* window) {
         WGPUInstanceDescriptor instanceDescriptor = {
             .nextInChain = nullptr,
         };
         instance = wgpuCreateInstance(&instanceDescriptor);
 
-        InitDevice();
+        InitDevice(window);
         LoadResources();
         InitBuffers();
         InitBindings();
@@ -220,9 +220,9 @@ namespace Citrus {
         CITRUS_CORE_INFO("initialized graphics manager");
     }
 
-    void GraphicsManager::InitDevice() {
+    void GraphicsManager::InitDevice(Window* window) {
         //get glfw window surface
-        HWND hwnd = glfwGetWin32Window(window.GetGLFWWindow());
+        HWND hwnd = glfwGetWin32Window(window->GetGLFWWindow());
         HINSTANCE hinstance = GetModuleHandle(nullptr);
 
         WGPUSurfaceSourceWindowsHWND win32SurfaceSrc = {
@@ -307,8 +307,8 @@ namespace Citrus {
             .device = device,
             .format = WGPUTextureFormat_BGRA8Unorm,
             .usage = WGPUTextureUsage_RenderAttachment,
-            .width = window.GetWidth(),
-            .height = window.GetHeight(),
+            .width = window->GetWidth(),
+            .height = window->GetHeight(),
             .viewFormatCount = 0,
             .viewFormats = nullptr,
             .alphaMode = WGPUCompositeAlphaMode_Auto,

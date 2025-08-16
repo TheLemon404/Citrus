@@ -7,6 +7,7 @@
 #include <webgpu/webgpu.h>
 
 #include <glm/mat4x4.hpp>
+
 #include "core/window.hpp"
 #include "scene/scene.hpp"
 #include "types/mesh.hpp"
@@ -52,8 +53,6 @@ namespace Citrus {
     };
 
     class CITRUS_API GraphicsManager {
-        Window& window;
-
         WGPUInstance instance;
         WGPUSurface surface;
         WGPUAdapter adapter;
@@ -79,7 +78,7 @@ namespace Citrus {
         WGPUBindGroupLayout bindGroupLayout;
 
     public:
-        GraphicsManager(Window& window) : window(window) {};
+        GraphicsManager() = default;
 
         //public callbacks
         void OnFramebufferResized(unsigned int width, unsigned int height);
@@ -95,7 +94,7 @@ namespace Citrus {
         static void UncapturedErrorCallback(WGPUDevice const * device, WGPUErrorType type, WGPUStringView message, void* userdata1, void* userdata2);
         static void QueueWorkDownCallback(WGPUQueueWorkDoneStatus status, void* userdata1, void* userdata2);
 
-        void InitDevice();
+        void InitDevice(Window* window);
 
         void LoadResources();
         void InitBuffers();
@@ -108,7 +107,7 @@ namespace Citrus {
         std::pair<WGPUSurfaceTexture, WGPUTextureView> GetNextSurfaceViewData();
 
     public:
-        void Init();
+        void Init(Window* window);
         void Draw(Scene& scene);
         void CleanUp();
     };
